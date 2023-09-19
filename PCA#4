@@ -1,0 +1,40 @@
+// Problem 1
+/*
+ANN(1)에서 사용한 첫번째 예제(y=2x+1을 학습하는 예제)를 가지고 새로운 실험을 진행한다.   
+해당 프로그램은 y=2x+1을 학습하기 위해 입력데이터로 2개의 데이터 (x[:2]) 를 사용하였다.  
+한개의 데이터로도 학습이 가능할까? 예를 들어 x[2]와 y[2]만을 가지고 학습하면 어떻게 될까?   
+14번 문장을 아래와 같이 수정하여 학습시킨다. 
+x1=np.array([x[2]]) 
+y1=np.array([y[2]]) 
+model.fit(x1,y1, epochs=2000, verbose=0)
+수정후 결과를 출력해보아라 
+*/
+
+import tensorflow.keras as keras
+import numpy as np
+
+#generating examples
+x = np.array([0, 1, 2, 3, 4])
+y = x * 2 + 1
+
+#generating neural network modeling
+model = keras.models.Sequential()
+model.add(keras.layers.Dense(1, input_shape = (1,)))
+model.compile('SGD', 'mse')
+
+#before learning
+print('Before Learning:')
+print('Targets: ', y[2:])
+print('Predictions: ', model.predict(x[2:]).flatten())
+print(model.get_weights())
+
+#training with one sample
+x1 = np.array([x[2]])
+y1 = np.array([y[2]])
+model.fit(x1, y1, epochs=2000, verbose=0)
+
+#after learning
+print('After Learning:')
+print('Targets: ', y[2:])
+print('Predictions: ', model.predict(x[2:]).flatten())
+print(model.get_weights())
