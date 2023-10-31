@@ -1,0 +1,121 @@
+# Problem #1 
+# X번째 학습데이터의 decoded_review를 아래 빈칸에 붙여넣으세요.
+X = 774
+word_index_of_X=train_data[X][0:5]  
+print(word_index_of_X)  
+print( [ reverse_word_index.get(i-3,'?') for i in word_index_of_X ])  print( x_train[X][word_index_of_X[1]])  
+print( x_train[X][word_index_of_X[3]])
+
+# Problem #3 
+# 앞의 실습문제들을 기반으로 할 때 IMDB text data에서 vector형태로 바뀐 input은 어떤 의미를 가지고 있는지 설명하세요.
+
+# 벡터화된 입력은 One-Hot encoding을 사용하여 처리된 텍스트 데이터가 숫자 형식으로 변환된 것을 의미합니다. 이는 기계 학습 알고리즘이 필요로 하는 숫자 데이터 0 또는 1로 사용될 수 있습니다. IMDB 데이터베이스의 경우, 벡터화된 입력은 일반적으로 각 행이 문서(영화 리뷰)를 나타내고 각 열이 기능(단어)을 나타내며 셀 값은 문서 내의 기능 빈도를 나타내는 행렬입니다.
+
+# Problem #4
+
+# 어떤 식으로 NN의 결과를 확인할 수 있나요?
+
+from tensorflow.keras.datasets import imdb
+import numpy as np
+
+(train_data, train_labels), (test_data, test_labels)=imdb.load_data(num_words=10000)
+
+word_index = imdb.get_word_index()
+
+reverse_word_index = dict([(value, key) for (key, value) in word_index.items()])
+
+decoded_review = ' '.join([reverse_word_index.get(i - 3, '?') for i in train_data[774]])
+
+print(decoded_review)
+
+def vectorize_sequences(sequences, dimension=10000):
+    results = np.zeros((len(sequences), dimension))
+    for i, sequence in enumerate(sequences):
+        results[i, sequence] = 1.
+    return results
+
+x_train = vectorize_sequences(train_data)
+x_test = vectorize_sequences(test_data)
+
+y_train = np.asarray(train_labels).astype('float32')
+y_test = np.asarray(test_labels).astype('float32')
+
+from tensorflow.keras import models, layers
+from tensorflow.keras import optimizers, losses, metrics
+
+model = models.Sequential()
+model.add(layers.Dense(16, activation='relu', input_shape=(10000,)))
+model.add(layers.Dense(16, activation='relu'))
+model.add(layers.Dense(1, activation='sigmoid'))
+
+model.compile(optimizer=optimizers.RMSprop(learning_rate=0.001), loss=losses.binary_crossentropy, metrics=['accuracy'])
+
+x_val = x_train[:10000]
+partial_x_train = x_train[10000:]
+y_val = y_train[:10000]
+partial_y_train = y_train[10000:]
+
+from tensorflow.keras.callbacks import EarlyStopping
+
+history = model.fit(partial_x_train, partial_y_train, epochs=20, batch_size=512, validation_data=(x_val, y_val), callbacks=[EarlyStopping(monitor='val_loss', patience=1)])
+
+results = model.evaluate(x_test, y_test)
+print(results)
+
+prediction = model.predict(x_test)
+print(prediction[774])
+
+X=774
+word_index_of_X=train_data[X][0:5]
+print(word_index_of_X)
+print([reverse_word_index.get(i-3,'?') for i in word_index_of_X])
+print(x_train[X][word_index_of_X[1]])
+print(x_train[X][word_index_of_X[3]])
+
+import matplotlib.pyplot as plt
+
+history_dict = history.history
+loss = history_dict['loss']
+val_loss = history_dict['val_loss']
+
+epochs = range(1, len(loss)+1)
+
+plt.plot(epochs, loss, 'r', label='Training Loss')
+plt.plot(epochs, val_loss, 'b', label='Validation Loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+plt.clf()
+history_dict = history.history
+acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+
+plt.plot(epochs, acc, 'r', label='Training Accuracy')
+plt.plot(epochs, val_acc, 'b', label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+# <Prediction 코드>
+
+prediction = model.predict(x_test)
+print(prediction[774])
+
+# <Prediction 결과>
+[0.0309941]
+
+# 정확도 약 87% 정도가 나온 것을 확인할 수 있습니다.
+# Prediction 코드를 이용하여 리뷰가 긍정일 확률을 예측해보았는데 약 0.03정도로 확신이 부족한 결과가 나왔습니다.
+
+# Problem #5
+# X번째 리뷰를 읽어보세요, 어떻게 생각하시나요? 부정적인가요? 긍정적인가요?  NN의 결과와 비교해봅시다. NN의 결과는 무엇인가요? NN의 결과가 여러분의 생각과 일치하나요?
+
+# X번째 리뷰를 읽어본 결과 부정적입니다.
+# NN의 결과는 accuracy 87퍼센트로 나왔으며 774번째 리뷰가 긍정일 확률의 예측치가 약 0.03정도로 나와 확신이 없는 것으로 나왔습니다.
+# IMDb 리뷰 데이터셋은 주로 감정 분류를 위해 사람들이 작성한 리뷰를 사용하는데 각 사람은 서로 다른 관점과 경험을 가지고 있기 때문에 같은 내용에 대해 긍정적인 또는 부정적인 평가를 할 수 있습니다. 또한, 자연어 처리 모델은 모든 문장에서 모든 단어를 완벽하게 이해하지 못할 수도 있습니다. 따라서, 모델이 잘못된 결과를 반환할 수 있다는 한계를 인식하고 있어야 합니다.
+# 가능한 해결책으로는 다양한 데이터셋을 사용하여 모델을 학습시키고 모델의 성능을 평가하고 개선하는 과정을 지속적으로 수행하는 것이라고 생각합니다. 모델의 결과를 신뢰할 수 있도록 하기 위해, 모델의 출력 결과를 검증하고 분석하는 것이 중요하다고 생각합니다.
