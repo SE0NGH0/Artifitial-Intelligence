@@ -1,0 +1,508 @@
+"""
+Daily COVID-19 confirmed cases prediction
+ 
+Let’s predict the daily number of confirmed cases of COVID-19 in Spain through recurrent neural network (RNN). Predicting the daily number of confirmed cases of COVID-19 is a regression problem.
+Dataset
+• Daily incidence of the 52 Spanish provinces for 450 days from January 1st , 2020 to March 27th, 2021
+"""
+
+# Q1
+"""
+Let’s load the dataset using “pickle” python module.
+Pickle module implements binary protocols for serializing and deserializing a Python object structure.
+Simply, the pickle module is a module that can save and load objects of the Python, such as lists, dictionaries, or tuple etc.
+Usage: Save the object
+import pickle
+
+with open('filename', 'wb') as f:
+
+           pickle.dump(data, f)
+
+Load the object
+
+with open(‘filename', 'rb') as f:
+
+           data = pickle.load(f)
+
+Download the COVID-19 data named “practice_data.txt” and load it with the pickle module.
+Attach the code used to load the data and print the shape of the data. What does the data shape mean?
+"""
+
+# <Q1.py>
+
+import os
+import numpy as np
+import pickle
+from sklearn.model_selection import TimeSeriesSplit
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, Dense
+import matplotlib.pyplot as plt
+
+
+with open('practice_data.txt', 'rb') as f:
+    data = pickle.load(f)
+
+print(data.shape)
+
+train_data = data[:350]
+test_data = data[350:]
+
+# 사용하는 스페인의 코로나 확진자 데이터는 450일 동안 발생한 52개 주의 확진자 수를 담고 있다. 따라서 450개의 rows가 있고 row당 각 도시의 확진자 수를 52개의 column에 담고 있다.
+
+# Q2
+"""
+The input shape of the RNN is as follows -> (batch_size, time_steps, feature)
+Let’s preprocess the loaded data that would have 10 time steps. First, split the data input train and test data. Use the last 100 days of data as test data, and the rest as training data. Then, normalize the train and test data using the maximum value of the train data.
+Attach the code and write the shape of input and target data.
+"""
+
+# <Q2.py>
+import os
+import numpy as np
+import pickle
+from sklearn.model_selection import TimeSeriesSplit
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, Dense
+import matplotlib.pyplot as plt
+
+
+with open('practice_data.txt', 'rb') as f:
+    data = pickle.load(f)
+
+print(data.shape)
+
+train_data = data[:350]
+test_data = data[350:]
+
+def normalize(train_data, test_data):
+    import copy
+    train_data_norm = copy.deepcopy(train_data)
+    test_data_norm = copy.deepcopy(test_data)
+    max = train_data_norm.max(axis=0)
+    train_data_norm /= max
+    test_data_norm /= max
+    print(train_data_norm)
+    print(test_data_norm)
+    return train_data_norm, test_data_norm
+
+train_data_norm, test_data_norm = normalize(train_data, test_data)
+
+def preprocess_data(data, n=10):
+    x = []
+    y = []
+    for i in range(data.shape[0]-n):
+        last = i + n
+        x.append(data[i:last])
+        y.append(data[last])
+    print('input_shape:', np.array(x).shape)
+    print('target_shape:', np.array(y).shape)
+    return np.array(x), np.array(y)
+
+x_train, y_train = preprocess_data(train_data_norm)
+x_test, y_test = preprocess_data(test_data_norm)
+
+print(x_train)
+print(x_test)
+
+# Shape는 (batch_size, time_steps, feature)을 의미한다. Train과 Test의 Input과 Target의 data는 10 time steps를 가지며 350개의 train data와 100개의 test data로 split한 후 time step인 10으로 preprocessing 한 결과 batch_size는 340과 90으로 나타나고 52개 주의 데이터를 가지므로 feature은 52이다.
+
+# Q3
+"""
+Let’s build a RNN model and train it with preprocessed data.
+Build the model with a simple RNN with the following hyper-parameters
+Units = 52
+Activation = Sigmoid
+Optimizer = Adam with 0.001 learning rate
+Loss function = mean squared error
+Batch size = 20
+Epoch = 1000
+
+Before training the model, let’s find out optimal epochs with time series cross validation (CV).
+Unlike typical CV (left figure), time series CV (right figure) is applied differently.
+This type of CV is prepared in sklearn module, called “TimeSeriesSplit”
+The usage of “TimeSeriesSplit” is the same as typical CV.
+
+We need to follow the procedure below with the optimal epochs:
+1. Build and train RNN model several times with CV sets and enough epochs (1000 epochs)
+2. Average the “validation” losses over all the folds (np.mean)
+3. Find “the optimal epoch” that shows the minimum validation loss (np.argmax)
+4. after finding the optimal epoch, train the model with the “optimal” epochs and whole training dataset.
+
+Attach the code that builds a model, finds the optimal epochs (CV with 4 folds), and performs the final training with the identified optimal epochs.
+Attach the train and validation losses of each fold, and the final training losses
+"""
+
+# <Q3.py>
+import os
+import numpy as np
+import pickle
+from sklearn.model_selection import TimeSeriesSplit
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, Dense
+import matplotlib.pyplot as plt
+
+
+with open('practice_data.txt', 'rb') as f:
+    data = pickle.load(f)
+
+print(data.shape)
+
+train_data = data[:350]
+test_data = data[350:]
+
+def normalize(train_data, test_data):
+    import copy
+    train_data_norm = copy.deepcopy(train_data)
+    test_data_norm = copy.deepcopy(test_data)
+    max = train_data_norm.max(axis=0)
+    train_data_norm /= max
+    test_data_norm /= max
+    print(train_data_norm)
+    print(test_data_norm)
+    return train_data_norm, test_data_norm
+
+train_data_norm, test_data_norm = normalize(train_data, test_data)
+
+def preprocess_data(data, n=10):
+    x = []
+    y = []
+    for i in range(data.shape[0]-n):
+        last = i + n
+        x.append(data[i:last])
+        y.append(data[last])
+    print('input_shape:', np.array(x).shape)
+    print('target_shape:', np.array(y).shape)
+    return np.array(x), np.array(y)
+
+x_train, y_train = preprocess_data(train_data_norm)
+x_test, y_test = preprocess_data(test_data_norm)
+
+print(x_train)
+print(x_test)
+
+def build_model():
+    model = Sequential()
+    model.add(SimpleRNN(52, activation='sigmoid'))
+    model.add(Dense(1))
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mse'])
+    return model
+
+def plot_loss(h, title='loss'):
+    plt.plot(h.history['loss'])
+    plt.plot(h.history['val_loss'])
+    plt.title(title)
+    plt.ylabel('loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'])
+
+tscv = TimeSeriesSplit(n_splits=4)
+overall_loss = []
+
+for epochs in range(1, 1000+1, 25):
+    validation_loss = []
+    for train_index, val_index in tscv.split(x_train):
+        model = build_model()
+        h = model.fit(x_train[train_index], y_train[train_index],
+                      validation_data=(x_train[val_index], y_train[val_index]),
+                      epochs=epochs, batch_size=20, verbose=0)
+        validation_loss.append(h.history['val_loss'][-1])
+        print('loss', h.history['loss'][-1], '\nval_loss:', h.history['val_loss'][-1])
+        plot_loss(h)
+        plt.show()
+        plt.savefig('loss.png')
+        plt.clf()
+
+    validation_loss = np.array(validation_loss)
+    val_loss_mean = np.mean(validation_loss)
+    print(epochs, 'mean:', val_loss_mean, '\n')
+
+# Q4
+"""
+Combining the train and test data, draw the “overall” daily confirmed cases of the target (shown in black) and the predicted results (shown in red). See the example below. 
+- Overall cases means the summation of all the 52 provinces in Spain, not the cases of each provinces)
+"""
+
+# <Q4.py>
+import os
+import numpy as np
+import pickle
+from sklearn.model_selection import TimeSeriesSplit
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, Dense
+import matplotlib.pyplot as plt
+
+
+with open('practice_data.txt', 'rb') as f:
+    data = pickle.load(f)
+
+overall = data.sum(axis=1)
+
+max = np.max(data)
+data_norm = data/max
+
+def preprocess_data(data, n=10):
+    x = []
+    y = []
+    for i in range(data.shape[0]-n):
+        last = i + n
+        x.append(data[i:last])
+        y.append(data[last])
+    print('input_shape:', np.array(x).shape)
+    print('target_shape:', np.array(y).shape)
+    return np.array(x), np.array(y)
+
+x_data, y_data = preprocess_data(data_norm)
+
+def build_model():
+    model = Sequential()
+    model.add(SimpleRNN(52, activation='sigmoid'))
+    model.add(Dense(1))
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mse'])
+    return model
+
+def plot_loss(h, title='loss'):
+    plt.plot(h.history['loss'])
+    plt.plot(h.history['val_loss'])
+    plt.title(title)
+    plt.ylabel('loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'])
+
+model = build_model()
+h = model.fit(x_data, y_data, epochs=800, batch_size=20, verbose=0)
+predict = model.predict(x_data)
+predict = predict * max * 52
+
+predict_list = []
+for i in range(x_data.shape[0]):
+    if i<10:
+        predict_list.append(0)
+    else:
+        predict_list.append(predict[i-10,])
+
+predict = np.array(predict_list)
+length = range(0, len(predict))
+
+def plot_graph():
+    plt.plot(length, overall[length,])
+    plt.plot(length, predict[length,])
+    plt.title('COVID 19 of Overall Spain')
+    plt.xlabel('Days')
+    plt.ylabel('Confirmed Cases')
+    plt.legend(['Overall', 'Predict'])
+
+plot_graph()
+plt.savefig("Q4.png")
+
+# QE1
+# Is there any way to improve the performance?
+
+"""
+Optimal한 epoch을 찾았지만 epoch 이외에도 모델의 성능에 영향을 미치는 hyper-parameter들이 있다. Learning rate, layer의 수, hidden neuron의 개수 등을 변화를 주면서 optical한 hyper-parameter을 찾은 후 학습시킨다면 조금 더 좋은 성능을 가질 수 있을 것이다. 또한 수업시간에 배운 short term뿐 아니라 long term memory를 가질 수 있는 LSTM을 사용한다면 gradient problem을 개선하여 더 좋은 성능을 낼 수 있을 것이라고 판단된다.
+"""
+
+# QE2
+"""
+Repeat Q3-Q4 for GRU and LSTM.
+Attach the code and result figures.
+Discuss which model performs the best
+"""
+
+# <QE2_1.py>
+import os
+import numpy as np
+import pickle
+from sklearn.model_selection import TimeSeriesSplit
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, GRU, Dense
+import matplotlib.pyplot as plt
+
+
+with open('practice_data.txt', 'rb') as f:
+    data = pickle.load(f)
+
+print(data.shape)
+
+train_data = data[:350]
+test_data = data[350:]
+
+def normalize(train_data, test_data):
+    import copy
+    train_data_norm = copy.deepcopy(train_data)
+    test_data_norm = copy.deepcopy(test_data)
+    max = train_data_norm.max(axis=0)
+    train_data_norm /= max
+    test_data_norm /= max
+    print(train_data_norm)
+    print(test_data_norm)
+    return train_data_norm, test_data_norm
+
+train_data_norm, test_data_norm = normalize(train_data, test_data)
+
+def preprocess_data(data, n=10):
+    x = []
+    y = []
+    for i in range(data.shape[0]-n):
+        last = i + n
+        x.append(data[i:last])
+        y.append(data[last])
+    print('input_shape:', np.array(x).shape)
+    print('target_shape:', np.array(y).shape)
+    return np.array(x), np.array(y)
+
+x_train, y_train = preprocess_data(train_data_norm)
+x_test, y_test = preprocess_data(test_data_norm)
+
+print(x_train)
+print(x_test)
+
+def build_model():
+    model = Sequential()
+    model.add(GRU(52, activation='sigmoid'))
+    model.add(Dense(1))
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mse'])
+    return model
+
+def plot_loss(h, title='loss'):
+    plt.plot(h.history['loss'])
+    plt.plot(h.history['val_loss'])
+    plt.title(title)
+    plt.ylabel('loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'])
+
+tscv = TimeSeriesSplit(n_splits=4)
+overall_loss = []
+min_epochs = 0
+min = 0
+
+for epochs in range(1, 1000+1, 10):
+    validation_loss = []
+    print('\nEpoch: ', epochs)
+    for train_index, val_index in tscv.split(x_train):
+        model = build_model()
+        h = model.fit(x_train[train_index], y_train[train_index],
+                      validation_data=(x_train[val_index], y_train[val_index]),
+                      epochs=epochs, batch_size=20, verbose=0)
+        validation_loss.append(h.history['val_loss'][-1])
+        print('loss', h.history['loss'][-1], '\nval_loss:', h.history['val_loss'][-1])
+
+    validation_loss = np.array(validation_loss)
+    val_loss_mean = np.mean(validation_loss)
+    print('mean validation loss:', val_loss_mean, '\n')
+    overall_loss.append(val_loss_mean)
+    if min > np.argmin(overall_loss):
+        min = np.argmin(overall_loss)
+        min_epochs = epochs
+        plot_loss(h)
+        plt.show()
+        plt.savefig('loss.png')
+        plt.clf()
+        print('middle loss-----------------------', min)
+print('Optimal Epochs: ', min_epochs)
+print('Val Loss: ', min)
+
+# QE2
+# <QE2_2.py>
+import os
+import numpy as np
+import pickle
+from sklearn.model_selection import TimeSeriesSplit
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, GRU, Dense, LSTM
+import matplotlib.pyplot as plt
+
+
+with open('practice_data.txt', 'rb') as f:
+    data = pickle.load(f)
+
+print(data.shape)
+
+train_data = data[:350]
+test_data = data[350:]
+
+def normalize(train_data, test_data):
+    import copy
+    train_data_norm = copy.deepcopy(train_data)
+    test_data_norm = copy.deepcopy(test_data)
+    max = train_data_norm.max(axis=0)
+    train_data_norm /= max
+    test_data_norm /= max
+    print(train_data_norm)
+    print(test_data_norm)
+    return train_data_norm, test_data_norm
+
+train_data_norm, test_data_norm = normalize(train_data, test_data)
+
+def preprocess_data(data, n=10):
+    x = []
+    y = []
+    for i in range(data.shape[0]-n):
+        last = i + n
+        x.append(data[i:last])
+        y.append(data[last])
+    print('input_shape:', np.array(x).shape)
+    print('target_shape:', np.array(y).shape)
+    return np.array(x), np.array(y)
+
+x_train, y_train = preprocess_data(train_data_norm)
+x_test, y_test = preprocess_data(test_data_norm)
+
+print(x_train)
+print(x_test)
+
+def build_model():
+    model = Sequential()
+    model.add(LSTM(52, activation='sigmoid'))
+    model.add(Dense(1))
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mse'])
+    return model
+
+def plot_loss(h, title='loss'):
+    plt.plot(h.history['loss'])
+    plt.plot(h.history['val_loss'])
+    plt.title(title)
+    plt.ylabel('loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'])
+
+tscv = TimeSeriesSplit(n_splits=4)
+overall_loss = []
+min_epochs = 0
+min = 0
+
+for epochs in range(1, 1000+1, 10):
+    validation_loss = []
+    print('\nEpoch: ', epochs)
+    for train_index, val_index in tscv.split(x_train):
+        model = build_model()
+        h = model.fit(x_train[train_index], y_train[train_index],
+                      validation_data=(x_train[val_index], y_train[val_index]),
+                      epochs=epochs, batch_size=20, verbose=0)
+        validation_loss.append(h.history['val_loss'][-1])
+        print('loss', h.history['loss'][-1], '\nval_loss:', h.history['val_loss'][-1])
+
+    validation_loss = np.array(validation_loss)
+    val_loss_mean = np.mean(validation_loss)
+    print('mean validation loss:', val_loss_mean, '\n')
+    overall_loss.append(val_loss_mean)
+    if min > np.argmin(overall_loss):
+        min = np.argmin(overall_loss)
+        min_epochs = epochs
+        plot_loss(h)
+        plt.show()
+        plt.savefig('loss.png')
+        plt.clf()
+        print('middle loss-----------------------', min)
+print('Optimal Epochs: ', min_epochs)
+print('Val Loss: ', min)
+
+"""
+GRU보다 LSTM의 Loss값이 더 작게 나왔다. GRU는 LSTM을 간소화 한 모델인데 가지고 있는 데이터에 비해서 간소화를 하였기에 더 loss가 크게 나왔을 것이라고 예상된다. 하지만 Loss값은 크게 차이 나지 않고 GRU는 학습 시간이 덜 걸리기 때문에 만약 데이터가 더 풍부하였다면 학습시간에 대한 이득 부분이 GRU에서 더 컸을 것이다.
+"""
