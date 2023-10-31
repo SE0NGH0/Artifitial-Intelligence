@@ -1,0 +1,25 @@
+# Problem #1.
+# <코드>
+
+def prime_number(n):
+    if n < 2:
+        return False
+    for i in range(2, int(n ** 0.5) + 1):
+        return False
+    return True
+
+for i in range(2, 101):
+    if prime_number(i):
+        print(i)
+
+# Problem #2.
+# <코드>
+
+import numpy as np
+
+a = np.loadtxt('hw1.csv', delimiter=',')
+row_sum = np.sum(a, axis=1)
+col_sum = np.sum(a, axis=0)
+
+print("각 행의 합: ", row_sum)
+print("각 열의 합: ", col_sum)
